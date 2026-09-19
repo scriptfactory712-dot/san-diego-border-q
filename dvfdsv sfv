@@ -1,6 +1,6 @@
 --[[
-    Lua Hub V1.2 (Playa San Diego Auto Farm)
-    by Reptiled
+    Lua Hub V1.3 (Playa San Diego Auto Farm) - FIXED
+    by Reptiled (Fixed version)
 ]]
 
 -- ========== СЕРВИСЫ ==========
@@ -8,6 +8,7 @@ local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local StarterGui = game:GetService("StarterGui")
+local LocalPlayer = Players.LocalPlayer
 
 -- ========== ЗАГРУЗОЧНЫЙ ЭКРАН ==========
 local function getGuiParent()
@@ -17,7 +18,7 @@ local function getGuiParent()
     end
     local ok, result = pcall(function() return game:GetService("CoreGui") end)
     if ok and result then return result end
-    return Players.LocalPlayer:WaitForChild("PlayerGui")
+    return LocalPlayer:WaitForChild("PlayerGui")
 end
 
 local gui = Instance.new("ScreenGui")
@@ -130,19 +131,34 @@ task.wait(0.8)
 Update("Loading UI library...", 0.4)
 task.wait(0.5)
 
--- Загрузка Rayfield
+-- Загрузка Rayfield (несколько источников для надёжности)
 local Rayfield = nil
 local loadSuccess, loadErr = pcall(function()
-    local source = game:HttpGet('https://raw.githubusercontent.com/UI-Interface/CustomFIeld/main/RayField.lua')
-    if not source or source == "" then
-        error("Empty response")
+    -- Пробуем несколько URL
+    local urls = {
+        'https://raw.githubusercontent.com/RayfieldUI/Rayfield/main/source.lua',
+        'https://raw.githubusercontent.com/UI-Interface/CustomFIeld/main/RayField.lua',
+        'https://raw.githubusercontent.com/dawiduk1234/Rayfield/main/source.lua'
+    }
+    
+    for i, url in ipairs(urls) do
+        pcall(function()
+            local source = game:HttpGet(url, true)
+            if source and source ~= "" and source:find("Rayfield") then
+                Rayfield = loadstring(source)()
+            end
+        end)
+        if Rayfield then break end
     end
-    Rayfield = loadstring(source)()
+    
+    if not Rayfield then
+        error("All URLs failed")
+    end
 end)
 
 if not loadSuccess or not Rayfield then
     Update("Failed to load!", 1.0)
-    Notify("Error", "Failed to load library", 5)
+    Notify("Error", "Failed to load library - check your exploit", 5)
     task.wait(2)
     if spinConn then spinConn:Disconnect() end
     gui:Destroy()
@@ -185,9 +201,9 @@ local hubSuccess, hubErr = pcall(function()
     getgenv().SecureMode = true
     
     local Window = Rayfield:CreateWindow({
-        Name = "Lua Hub V1.2 | Playa San Diego",
+        Name = "Lua Hub V1.3 | Playa San Diego [FIXED]",
         LoadingTitle = "Lua Hub",
-        LoadingSubtitle = "by Reptiled",
+        LoadingSubtitle = "Fixed by Reptiled",
         ConfigurationSaving = {
             Enabled = true,
             FolderName = "LuaHub",
@@ -205,7 +221,7 @@ local hubSuccess, hubErr = pcall(function()
     local POINT_1 = Vector3.new(6925.40, 17.21, 46.85)
     
     -- Точка 2: Магазин контрабанды (выбор предмета)
-    local SHOP_COORDS = Vector3.new(6820.70, 20.11, 38.39) -- Центр магазина
+    local SHOP_COORDS = Vector3.new(6820.70, 20.11, 38.39)
     
     -- Позиции предметов в магазине
     local ITEMS = {
@@ -214,7 +230,7 @@ local hubSuccess, hubErr = pcall(function()
         {name = "Witches Brew", pos = Vector3.new(6802.97, 20.11, 33.19)},
         {name = "Mono Liza Painting", pos = Vector3.new(6804.66, 20.11, 23.62)},
         {name = "Fake Designer Sneakers", pos = Vector3.new(6810.03, 20.11, 17.67)},
-        {name = "Fake Diamound Ring", pos = Vector3.new(6820.25, 20.14, 16.90)},
+        {name = "Fake Diamond Ring", pos = Vector3.new(6820.25, 20.14, 16.90)},
     }
     
     -- Точка 3-18: Путь к продавцу
@@ -252,66 +268,120 @@ local hubSuccess, hubErr = pcall(function()
     }
     
     -- Точка 27-28: Отмывание денег
-    local WASH_COORDS = Vector3.new(6867.19, 17.45, -42.93)  -- Точка 27
-    local WASH_NPC = Vector3.new(6807.92, 17.42, -34.27)      -- Точка 28 (NPC отмывания)
+    local WASH_COORDS = Vector3.new(6867.19, 17.45, -42.93)
+    local WASH_NPC = Vector3.new(6807.92, 17.42, -34.27)
 
     -- ========== НАСТРОЙКИ ==========
-    local selectedItem = "Crate Of Avocados" -- Выбранный предмет по умолчанию
+    local selectedItem = "Crate Of Avocados"
     local autoFarmEnabled = false
     local farmThread = nil
-    local teleportSpeed = 1 -- Скорость телепорта (секунды между точками)
+    local teleportSpeed = 0.3
 
-    -- ========== ФУНКЦИИ ==========
+    -- ========== ИСПРАВЛЕННЫЕ ФУНКЦИИ ==========
     
-    -- Телепорт к координатам
-    local function teleportTo(position)
-        local player = Players.LocalPlayer
-        if not player.Character then return end
-        local hrp = player.Character:FindFirstChild("HumanoidRootPart")
-        if hrp then
-            hrp.CFrame = CFrame.new(position)
-        end
+    -- Получение HumanoidRootPart
+    local function getHRP()
+        if not LocalPlayer.Character then return nil end
+        return LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
     end
-
-    -- Поиск и взаимодействие с объектом
-    local function interactWith(targetName, position)
-        local player = Players.LocalPlayer
-        if not player.Character then return false end
-        local hrp = player.Character:FindFirstChild("HumanoidRootPart")
-        if not hrp then return false end
-
-        -- Телепортируемся к позиции
-        if position then
-            hrp.CFrame = CFrame.new(position)
-            task.wait(0.3)
-        end
-
-        -- Ищем объект в Workspace
-        for _, obj in pairs(workspace:GetDescendants()) do
-            if obj.Name:lower():find(targetName:lower()) then
-                -- ProximityPrompt
-                local prompt = obj:FindFirstChildOfClass("ProximityPrompt", true)
-                if prompt then
-                    fireproximityprompt(prompt)
-                    return true
-                end
-                
-                -- ClickDetector
-                local click = obj:FindFirstChildOfClass("ClickDetector", true)
-                if click then
-                    fireclickdetector(click)
-                    return true
-                end
-                
-                -- TouchInterest
-                if firetouchinterest and obj:IsA("BasePart") then
-                    firetouchinterest(hrp, obj, 0)
-                    task.wait(0.1)
-                    firetouchinterest(hrp, obj, 1)
+    
+    -- Проверка наличия предмета (инвентарь)
+    local function hasItem(itemName)
+        local character = LocalPlayer.Character
+        if not character then return false end
+        
+        -- Проверяем наличие предмета через поиск в descendants
+        for _, obj in pairs(character:GetDescendants()) do
+            if obj:IsA("Tool") or obj:IsA("BackpackItem") then
+                if obj.Name:lower():find(itemName:lower()) then
                     return true
                 end
             end
         end
+        
+        -- Также проверяем Backpack
+        local backpack = LocalPlayer:FindFirstChild("Backpack")
+        if backpack then
+            for _, obj in pairs(backpack:GetDescendants()) do
+                if obj:IsA("Tool") or obj:IsA("BackpackItem") then
+                    if obj.Name:lower():find(itemName:lower()) then
+                        return true
+                    end
+                end
+            end
+        end
+        
+        return false
+    end
+    
+    -- Телепорт к координатам
+    local function teleportTo(position)
+        local hrp = getHRP()
+        if not hrp then 
+            Notify("Error", "Character not found!", 2)
+            return false 
+        end
+        hrp.CFrame = CFrame.new(position)
+        return true
+    end
+
+    -- Поиск ProximityPrompt по названию
+    local function findProximityPrompt(targetName, range)
+        range = range or 50
+        
+        -- Ищем в Workspace
+        for _, obj in pairs(workspace:GetDescendants()) do
+            if obj:IsA("ProximityPrompt") then
+                local promptName = obj.Name
+                local parentName = obj.Parent and obj.Parent.Name or ""
+                
+                -- Проверяем имя промпта или родителя
+                if promptName:lower():find(targetName:lower()) or 
+                   parentName:lower():find(targetName:lower()) then
+                    
+                    local promptPos = obj.Parent and obj.Parent:IsA("BasePart") and obj.Parent.Position or nil
+                    if promptPos and (hrp.Position - promptPos).Magnitude <= range then
+                        return obj
+                    end
+                end
+            end
+        end
+        
+        -- Ищем по позиции (если название не найдено)
+        local hrp = getHRP()
+        if hrp then
+            for _, obj in pairs(workspace:GetDescendants()) do
+                if obj:IsA("ProximityPrompt") and obj.Parent and obj.Parent:IsA("BasePart") then
+                    local dist = (hrp.Position - obj.Parent.Position).Magnitude
+                    if dist <= range then
+                        return obj
+                    end
+                end
+            end
+        end
+        
+        return nil
+    end
+
+    -- Взаимодействие с ProximityPrompt
+    local function interactWithPrompt(prompt)
+        if not prompt then return false end
+        
+        if fireproximityprompt then
+            pcall(fireproximityprompt, prompt)
+            return true
+        elseif prompt.TriggerDistance then
+            -- Альтернативный метод
+            local hrp = getHRP()
+            if hrp then
+                local oldPos = hrp.CFrame
+                hrp.CFrame = prompt.Parent.CFrame * CFrame.new(0, 2, 0)
+                task.wait(0.2)
+                hrp.CFrame = oldPos
+                return true
+            end
+        end
+        
         return false
     end
 
@@ -323,15 +393,67 @@ local hubSuccess, hubErr = pcall(function()
         teleportTo(SHOP_COORDS)
         task.wait(0.5)
         
-        -- Ищем и покупаем предмет
-        local bought = interactWith(itemName)
-        task.wait(1)
-        return bought
+        -- Ищем предмет в магазине
+        local itemData = nil
+        for _, item in pairs(ITEMS) do
+            if item.name == itemName then
+                itemData = item
+                break
+            end
+        end
+        
+        if itemData then
+            teleportTo(itemData.pos)
+            task.wait(0.3)
+        end
+        
+        -- Ищем ProximityPrompt для покупки
+        local prompt = findProximityPrompt(itemName, 30)
+        if not prompt then
+            prompt = findProximityPrompt("Shop", 30)
+        end
+        if not prompt then
+            prompt = findProximityPrompt("Buy", 30)
+        end
+        
+        if prompt then
+            interactWithPrompt(prompt)
+            task.wait(1.5)
+            
+            -- Проверяем купили ли предмет
+            if hasItem(itemName) then
+                Notify("Farm", "Successfully bought " .. itemName, 2)
+                return true
+            else
+                Notify("Farm", "Waiting for item...", 2)
+                task.wait(2)
+                return hasItem(itemName)
+            end
+        else
+            Notify("Farm", "No shop prompt found! Trying alternative...", 2)
+            -- Пробуем просто ждать (иногда предмет покупается автоматически)
+            task.wait(2)
+            return hasItem(itemName)
+        end
     end
 
     -- Продажа продавцу
     local function sellToSeller()
-        Notify("Farm", "Selling to Smuggled Goods Seller...", 2)
+        Notify("Farm", "Going to seller...", 2)
+        
+        -- Проверяем есть ли предмет для продажи
+        local hasAnyItem = false
+        for _, item in pairs(ITEMS) do
+            if hasItem(item.name) then
+                hasAnyItem = true
+                break
+            end
+        end
+        
+        if not hasAnyItem then
+            Notify("Farm", "No items to sell!", 2)
+            return false
+        end
         
         -- Летим по маршруту к продавцу
         for i, point in pairs(ROUTE_TO_SELLER) do
@@ -344,15 +466,33 @@ local hubSuccess, hubErr = pcall(function()
         teleportTo(SELLER_COORDS)
         task.wait(0.5)
         
-        -- Продаём
-        local sold = interactWith("Smuggled Goods Seller")
-        task.wait(1)
-        return sold
+        -- Ищем ProximityPrompt продавца
+        local prompt = findProximityPrompt("Seller", 30)
+        if not prompt then
+            prompt = findProximityPrompt("Smuggled", 30)
+        end
+        if not prompt then
+            prompt = findProximityPrompt("Sell", 30)
+        end
+        if not prompt then
+            prompt = findProximityPrompt("Goods", 30)
+        end
+        
+        if prompt then
+            interactWithPrompt(prompt)
+            task.wait(1.5)
+            Notify("Farm", "Sold items!", 2)
+            return true
+        else
+            Notify("Farm", "No seller prompt found!", 2)
+            task.wait(1)
+            return false
+        end
     end
 
     -- Отмывание денег
     local function washMoney()
-        Notify("Farm", "Washing money...", 2)
+        Notify("Farm", "Going to wash money...", 2)
         
         -- Летим по маршруту к отмыванию
         for i, point in pairs(ROUTE_TO_WASH) do
@@ -365,14 +505,45 @@ local hubSuccess, hubErr = pcall(function()
         teleportTo(WASH_COORDS)
         task.wait(0.5)
         
-        -- Взаимодействуем с NPC отмывания
-        local washed = interactWith("Wash", WASH_NPC)
-        task.wait(1)
-        return washed
+        -- Ищем ProximityPrompt для отмывания
+        local prompt = findProximityPrompt("Wash", 30)
+        if not prompt then
+            prompt = findProximityPrompt("Money", 30)
+        end
+        if not prompt then
+            prompt = findProximityPrompt("Clean", 30)
+        end
+        
+        if prompt then
+            interactWithPrompt(prompt)
+            task.wait(1.5)
+            Notify("Farm", "Money washed!", 2)
+            return true
+        else
+            -- Пробуем телепортироваться к NPC
+            teleportTo(WASH_NPC)
+            task.wait(0.5)
+            
+            prompt = findProximityPrompt("NPC", 20)
+            if prompt then
+                interactWithPrompt(prompt)
+                task.wait(1.5)
+                return true
+            end
+            
+            Notify("Farm", "No wash prompt found!", 2)
+            return false
+        end
     end
 
     -- Полный цикл фарма
     local function farmCycle()
+        local hrp = getHRP()
+        if not hrp then
+            Notify("Error", "Character not loaded!", 3)
+            return
+        end
+        
         -- 1. Телепортируемся к старту
         teleportTo(POINT_1)
         task.wait(1)
@@ -380,23 +551,34 @@ local hubSuccess, hubErr = pcall(function()
         -- 2. Покупаем выбранный предмет
         local bought = buyItem(selectedItem)
         if not bought then
-            Notify("Farm", "Failed to buy " .. selectedItem, 3)
+            Notify("Farm", "Failed to buy " .. selectedItem .. " - retrying...", 3)
+            task.wait(1)
+            bought = buyItem(selectedItem)
+        end
+        
+        if not bought then
+            Notify("Farm", "Still failed to buy - skipping cycle", 3)
             return
         end
         
         -- 3. Продаём продавцу
         local sold = sellToSeller()
         if not sold then
-            Notify("Farm", "Failed to sell", 3)
-            return
+            Notify("Farm", "Failed to sell - retrying...", 3)
+            task.wait(1)
+            sold = sellToSeller()
+        end
+        
+        if not sold then
+            Notify("Farm", "Still failed to sell - trying to wash anyway", 3)
         end
         
         -- 4. Отмываем деньги
         local washed = washMoney()
         if washed then
-            Notify("Farm", "Cycle complete! Money washed!", 3)
+            Notify("Farm", "✓ Cycle complete!", 3)
         else
-            Notify("Farm", "Failed to wash money", 3)
+            Notify("Farm", "Cycle finished with errors", 3)
         end
     end
 
@@ -406,8 +588,15 @@ local hubSuccess, hubErr = pcall(function()
         
         farmThread = task.spawn(function()
             while autoFarmEnabled do
-                farmCycle()
-                task.wait(2) -- Пауза между циклами
+                local success, err = pcall(farmCycle)
+                if not success then
+                    Notify("Error", "Farm error: " .. tostring(err), 3)
+                    warn("[AutoFarm Error]", err)
+                end
+                
+                if autoFarmEnabled then
+                    task.wait(2)
+                end
             end
             farmThread = nil
         end)
@@ -419,6 +608,7 @@ local hubSuccess, hubErr = pcall(function()
             task.cancel(farmThread)
             farmThread = nil
         end
+        Notify("Farm", "AutoFarm stopped", 2)
     end
 
     -- ========== UI ЭЛЕМЕНТЫ ==========
@@ -448,10 +638,9 @@ local hubSuccess, hubErr = pcall(function()
         Callback = function(Value)
             autoFarmEnabled = Value
             if Value then
-                Notify("Farm", "Auto Farm started!", 2)
+                Notify("Farm", "✓ Auto Farm started!", 2)
                 startAutoFarm()
             else
-                Notify("Farm", "Auto Farm stopped!", 2)
                 stopAutoFarm()
             end
         end
@@ -462,7 +651,7 @@ local hubSuccess, hubErr = pcall(function()
         Name = "Run Single Cycle",
         Callback = function()
             Notify("Farm", "Running single cycle...", 2)
-            farmCycle()
+            pcall(farmCycle)
         end
     })
 
@@ -496,22 +685,28 @@ local hubSuccess, hubErr = pcall(function()
     -- Слайдер скорости
     FarmTab:CreateSlider({
         Name = "Teleport Speed",
-        Range = {0.1, 5},
+        Range = {0.1, 3},
         Increment = 0.1,
         Suffix = "sec",
-        CurrentValue = 1,
+        CurrentValue = 0.3,
         Flag = "SpeedSlider",
         Callback = function(Value)
             teleportSpeed = Value
         end
+    })
+    
+    -- Информация
+    FarmTab:CreateParagraph({
+        Title = "How to Use",
+        Content = "1. Select item from dropdown\n2. Enable Auto Farm toggle\n3. Script will: Buy → Sell → Wash\n\nIf errors occur, try:\n- Check if you're in the right game\n- Rejoin the game\n- Use single cycle button"
     })
 
     -- ========== HOME TAB ==========
     local HomeTab = Window:CreateTab("Home", 4384396147)
     
     HomeTab:CreateParagraph({
-        Title = "Playa San Diego Farm",
-        Content = "Select item in Farm tab and enable Auto Farm.\n\nCycle: Buy → Fly to Seller → Sell → Fly to Wash → Wash Money"
+        Title = "Playa San Diego Farm [FIXED]",
+        Content = "Version: 1.3 (Fixed)\n\nFixed issues:\n- Better error handling\n- Multiple retry attempts\n- Improved prompt detection\n- Item verification\n\nCycle: Buy → Fly to Seller → Sell → Fly to Wash → Wash Money"
     })
     
     HomeTab:CreateButton({
@@ -527,6 +722,4 @@ end)
 if not hubSuccess then
     Notify("Error", "Failed to create hub: " .. tostring(hubErr), 5)
     warn("[Lua Hub] " .. tostring(hubErr))
-end
-
-вот код просканируй его
+end его
