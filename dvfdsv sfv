@@ -528,5 +528,3 @@ if not hubSuccess then
     Notify("Error", "Failed to create hub: " .. tostring(hubErr), 5)
     warn("[Lua Hub] " .. tostring(hubErr))
 end
-
-вот код просканируй его
