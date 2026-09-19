@@ -1,0 +1,532 @@
+--[[
+    Lua Hub V1.2 (Playa San Diego Auto Farm)
+    by Reptiled
+]]
+
+-- ========== СЕРВИСЫ ==========
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local StarterGui = game:GetService("StarterGui")
+
+-- ========== ЗАГРУЗОЧНЫЙ ЭКРАН ==========
+local function getGuiParent()
+    if gethui then
+        local ok, res = pcall(gethui)
+        if ok and res then return res end
+    end
+    local ok, result = pcall(function() return game:GetService("CoreGui") end)
+    if ok and result then return result end
+    return Players.LocalPlayer:WaitForChild("PlayerGui")
+end
+
+local gui = Instance.new("ScreenGui")
+gui.Name = "CEOLoader"
+gui.ResetOnSpawn = false
+gui.IgnoreGuiInset = true
+gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+gui.Parent = getGuiParent()
+
+-- Фон
+local bg = Instance.new("Frame")
+bg.Name = "Background"
+bg.Size = UDim2.new(1, 0, 1, 0)
+bg.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+bg.BorderSizePixel = 0
+bg.Parent = gui
+
+-- Контейнер
+local container = Instance.new("Frame")
+container.Name = "Container"
+container.Size = UDim2.new(0, 300, 0, 150)
+container.Position = UDim2.new(0.5, -150, 0.5, -75)
+container.BackgroundTransparency = 1
+container.Parent = bg
+
+-- Спиннер
+local spinner = Instance.new("ImageLabel")
+spinner.Name = "Spinner"
+spinner.Size = UDim2.new(0, 50, 0, 50)
+spinner.Position = UDim2.new(0.5, -25, 0, 0)
+spinner.BackgroundTransparency = 1
+spinner.Image = "rbxassetid://107066773482010"
+spinner.ImageColor3 = Color3.fromRGB(255, 170, 0)
+spinner.Parent = container
+
+-- Текст статуса
+local statusText = Instance.new("TextLabel")
+statusText.Name = "Status"
+statusText.Size = UDim2.new(1, 0, 0, 30)
+statusText.Position = UDim2.new(0, 0, 0, 60)
+statusText.BackgroundTransparency = 1
+statusText.Text = "Initializing..."
+statusText.TextColor3 = Color3.fromRGB(255, 255, 255)
+statusText.Font = Enum.Font.GothamBold
+statusText.TextSize = 14
+statusText.Parent = container
+
+-- Фон прогресс-бара
+local barBg = Instance.new("Frame")
+barBg.Name = "BarBackground"
+barBg.Size = UDim2.new(1, 0, 0, 6)
+barBg.Position = UDim2.new(0, 0, 0, 100)
+barBg.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+barBg.BorderSizePixel = 0
+barBg.Parent = container
+local barBgCorner = Instance.new("UICorner")
+barBgCorner.CornerRadius = UDim.new(1, 0)
+barBgCorner.Parent = barBg
+
+-- Заполнение прогресс-бара
+local barFill = Instance.new("Frame")
+barFill.Name = "BarFill"
+barFill.Size = UDim2.new(0, 0, 1, 0)
+barFill.BackgroundColor3 = Color3.fromRGB(255, 170, 0)
+barFill.BorderSizePixel = 0
+barFill.Parent = barBg
+local barFillCorner = Instance.new("UICorner")
+barFillCorner.CornerRadius = UDim.new(1, 0)
+barFillCorner.Parent = barFill
+
+-- Анимация спиннера
+local spinConn
+spinConn = RunService.RenderStepped:Connect(function()
+    if spinner and spinner.Parent then
+        spinner.Rotation = (spinner.Rotation + 5) % 360
+    else
+        if spinConn then
+            spinConn:Disconnect()
+            spinConn = nil
+        end
+    end
+end)
+
+-- Функция обновления статуса
+local function Update(text, progress)
+    if not statusText or not statusText.Parent then return end
+    statusText.Text = text
+    TweenService:Create(barFill, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
+        Size = UDim2.new(progress, 0, 1, 0)
+    }):Play()
+end
+
+-- Функция уведомлений
+local function Notify(title, text, duration)
+    task.spawn(function()
+        pcall(function()
+            StarterGui:SetCore("SendNotification", {
+                Title = title,
+                Text = text,
+                Duration = duration or 3
+            })
+        end)
+    end)
+end
+
+-- ========== ЭТАП 1: ЗАГРУЗКА БИБЛИОТЕКИ ==========
+Update("Fetching script...", 0.2)
+task.wait(0.8)
+
+Update("Loading UI library...", 0.4)
+task.wait(0.5)
+
+-- Загрузка Rayfield
+local Rayfield = nil
+local loadSuccess, loadErr = pcall(function()
+    local source = game:HttpGet('https://raw.githubusercontent.com/UI-Interface/CustomFIeld/main/RayField.lua')
+    if not source or source == "" then
+        error("Empty response")
+    end
+    Rayfield = loadstring(source)()
+end)
+
+if not loadSuccess or not Rayfield then
+    Update("Failed to load!", 1.0)
+    Notify("Error", "Failed to load library", 5)
+    task.wait(2)
+    if spinConn then spinConn:Disconnect() end
+    gui:Destroy()
+    return
+end
+
+Update("Preparing hub...", 0.7)
+task.wait(0.6)
+
+Update("Almost ready...", 0.9)
+task.wait(0.5)
+
+-- ========== ЭТАП 2: ЗАКРЫТИЕ ЗАГРУЗОЧНОГО ЭКРАНА ==========
+Update("Complete!", 1.0)
+task.wait(0.8)
+
+-- Плавное исчезновение
+local fadeBg = TweenService:Create(bg, TweenInfo.new(0.6, Enum.EasingStyle.Quad), {
+    BackgroundTransparency = 1
+})
+local fadeContainer = TweenService:Create(container, TweenInfo.new(0.6, Enum.EasingStyle.Quad), {
+    BackgroundTransparency = 1
+})
+
+fadeBg:Play()
+fadeContainer:Play()
+fadeBg.Completed:Wait()
+
+-- Полное уничтожение загрузочного экрана
+if spinConn then 
+    spinConn:Disconnect()
+    spinConn = nil
+end
+gui:Destroy()
+
+task.wait(0.3)
+
+-- ========== ЭТАП 3: ЗАПУСК ХАБА ==========
+local hubSuccess, hubErr = pcall(function()
+    getgenv().SecureMode = true
+    
+    local Window = Rayfield:CreateWindow({
+        Name = "Lua Hub V1.2 | Playa San Diego",
+        LoadingTitle = "Lua Hub",
+        LoadingSubtitle = "by Reptiled",
+        ConfigurationSaving = {
+            Enabled = true,
+            FolderName = "LuaHub",
+            FileName = "PlayaSanDiego"
+        },
+        KeySystem = false
+    })
+
+    -- ========== FARM TAB ==========
+    local FarmTab = Window:CreateTab("Farm", 4400700543)
+
+    -- ========== КООРДИНАТЫ ДЛЯ PLAZA SAN DIEGO ==========
+    
+    -- Точка 1: Старт
+    local POINT_1 = Vector3.new(6925.40, 17.21, 46.85)
+    
+    -- Точка 2: Магазин контрабанды (выбор предмета)
+    local SHOP_COORDS = Vector3.new(6820.70, 20.11, 38.39) -- Центр магазина
+    
+    -- Позиции предметов в магазине
+    local ITEMS = {
+        {name = "Crate Of Avocados", pos = Vector3.new(6820.70, 20.11, 38.39)},
+        {name = "Wagyu Beef", pos = Vector3.new(6810.73, 20.13, 38.24)},
+        {name = "Witches Brew", pos = Vector3.new(6802.97, 20.11, 33.19)},
+        {name = "Mono Liza Painting", pos = Vector3.new(6804.66, 20.11, 23.62)},
+        {name = "Fake Designer Sneakers", pos = Vector3.new(6810.03, 20.11, 17.67)},
+        {name = "Fake Diamound Ring", pos = Vector3.new(6820.25, 20.14, 16.90)},
+    }
+    
+    -- Точка 3-18: Путь к продавцу
+    local ROUTE_TO_SELLER = {
+        Vector3.new(6820.34, 17.41, 26.23),   -- Точка 3
+        Vector3.new(6878.03, 17.20, 24.20),   -- Точка 4
+        Vector3.new(6880.21, 17.20, 104.06),  -- Точка 5
+        Vector3.new(6723.03, 17.20, 106.79),  -- Точка 6
+        Vector3.new(6374.03, 17.20, 109.74),  -- Точка 7
+        Vector3.new(5917.70, 17.20, 103.40),  -- Точка 8
+        Vector3.new(5742.78, 17.20, 104.23),  -- Точка 9
+        Vector3.new(5417.42, 17.20, 105.84),  -- Точка 10
+        Vector3.new(4975.13, 17.20, 108.88),  -- Точка 11
+        Vector3.new(4595.34, 17.20, 104.85),  -- Точка 12
+        Vector3.new(4358.51, 17.20, 104.36),  -- Точка 13
+        Vector3.new(3471.42, 17.20, 107.87),  -- Точка 14
+        Vector3.new(2435.97, 17.20, 114.01),  -- Точка 15
+        Vector3.new(1082.73, 17.20, 114.00),  -- Точка 16
+        Vector3.new(191.28, 17.20, 97.74),    -- Точка 17
+        Vector3.new(186.90, 17.20, -50.31),   -- Точка 18
+    }
+    
+    -- Точка 19: Продавец (Smuggled Goods Seller)
+    local SELLER_COORDS = Vector3.new(209.63, 17.22, -43.04)
+    
+    -- Точка 20-26: Путь к отмыванию
+    local ROUTE_TO_WASH = {
+        Vector3.new(158.63, 17.20, -38.90),   -- Точка 20
+        Vector3.new(163.38, 16.72, 151.50),   -- Точка 21
+        Vector3.new(2874.42, 16.75, 152.28),  -- Точка 22
+        Vector3.new(4451.93, 16.73, 143.75),  -- Точка 23
+        Vector3.new(5064.46, 16.75, 141.58),  -- Точка 24
+        Vector3.new(5830.98, 16.75, 143.63),  -- Точка 25
+        Vector3.new(6761.31, 16.74, 148.36),  -- Точка 26
+    }
+    
+    -- Точка 27-28: Отмывание денег
+    local WASH_COORDS = Vector3.new(6867.19, 17.45, -42.93)  -- Точка 27
+    local WASH_NPC = Vector3.new(6807.92, 17.42, -34.27)      -- Точка 28 (NPC отмывания)
+
+    -- ========== НАСТРОЙКИ ==========
+    local selectedItem = "Crate Of Avocados" -- Выбранный предмет по умолчанию
+    local autoFarmEnabled = false
+    local farmThread = nil
+    local teleportSpeed = 1 -- Скорость телепорта (секунды между точками)
+
+    -- ========== ФУНКЦИИ ==========
+    
+    -- Телепорт к координатам
+    local function teleportTo(position)
+        local player = Players.LocalPlayer
+        if not player.Character then return end
+        local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            hrp.CFrame = CFrame.new(position)
+        end
+    end
+
+    -- Поиск и взаимодействие с объектом
+    local function interactWith(targetName, position)
+        local player = Players.LocalPlayer
+        if not player.Character then return false end
+        local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+        if not hrp then return false end
+
+        -- Телепортируемся к позиции
+        if position then
+            hrp.CFrame = CFrame.new(position)
+            task.wait(0.3)
+        end
+
+        -- Ищем объект в Workspace
+        for _, obj in pairs(workspace:GetDescendants()) do
+            if obj.Name:lower():find(targetName:lower()) then
+                -- ProximityPrompt
+                local prompt = obj:FindFirstChildOfClass("ProximityPrompt", true)
+                if prompt then
+                    fireproximityprompt(prompt)
+                    return true
+                end
+                
+                -- ClickDetector
+                local click = obj:FindFirstChildOfClass("ClickDetector", true)
+                if click then
+                    fireclickdetector(click)
+                    return true
+                end
+                
+                -- TouchInterest
+                if firetouchinterest and obj:IsA("BasePart") then
+                    firetouchinterest(hrp, obj, 0)
+                    task.wait(0.1)
+                    firetouchinterest(hrp, obj, 1)
+                    return true
+                end
+            end
+        end
+        return false
+    end
+
+    -- Покупка предмета
+    local function buyItem(itemName)
+        Notify("Farm", "Buying: " .. itemName, 2)
+        
+        -- Телепортируемся к магазину
+        teleportTo(SHOP_COORDS)
+        task.wait(0.5)
+        
+        -- Ищем и покупаем предмет
+        local bought = interactWith(itemName)
+        task.wait(1)
+        return bought
+    end
+
+    -- Продажа продавцу
+    local function sellToSeller()
+        Notify("Farm", "Selling to Smuggled Goods Seller...", 2)
+        
+        -- Летим по маршруту к продавцу
+        for i, point in pairs(ROUTE_TO_SELLER) do
+            if not autoFarmEnabled then return false end
+            teleportTo(point)
+            task.wait(teleportSpeed)
+        end
+        
+        -- Телепортируемся к продавцу
+        teleportTo(SELLER_COORDS)
+        task.wait(0.5)
+        
+        -- Продаём
+        local sold = interactWith("Smuggled Goods Seller")
+        task.wait(1)
+        return sold
+    end
+
+    -- Отмывание денег
+    local function washMoney()
+        Notify("Farm", "Washing money...", 2)
+        
+        -- Летим по маршруту к отмыванию
+        for i, point in pairs(ROUTE_TO_WASH) do
+            if not autoFarmEnabled then return false end
+            teleportTo(point)
+            task.wait(teleportSpeed)
+        end
+        
+        -- Телепортируемся к точке отмывания
+        teleportTo(WASH_COORDS)
+        task.wait(0.5)
+        
+        -- Взаимодействуем с NPC отмывания
+        local washed = interactWith("Wash", WASH_NPC)
+        task.wait(1)
+        return washed
+    end
+
+    -- Полный цикл фарма
+    local function farmCycle()
+        -- 1. Телепортируемся к старту
+        teleportTo(POINT_1)
+        task.wait(1)
+        
+        -- 2. Покупаем выбранный предмет
+        local bought = buyItem(selectedItem)
+        if not bought then
+            Notify("Farm", "Failed to buy " .. selectedItem, 3)
+            return
+        end
+        
+        -- 3. Продаём продавцу
+        local sold = sellToSeller()
+        if not sold then
+            Notify("Farm", "Failed to sell", 3)
+            return
+        end
+        
+        -- 4. Отмываем деньги
+        local washed = washMoney()
+        if washed then
+            Notify("Farm", "Cycle complete! Money washed!", 3)
+        else
+            Notify("Farm", "Failed to wash money", 3)
+        end
+    end
+
+    -- Запуск автофарма
+    local function startAutoFarm()
+        if farmThread then return end
+        
+        farmThread = task.spawn(function()
+            while autoFarmEnabled do
+                farmCycle()
+                task.wait(2) -- Пауза между циклами
+            end
+            farmThread = nil
+        end)
+    end
+
+    local function stopAutoFarm()
+        autoFarmEnabled = false
+        if farmThread then
+            task.cancel(farmThread)
+            farmThread = nil
+        end
+    end
+
+    -- ========== UI ЭЛЕМЕНТЫ ==========
+    
+    -- Выбор предмета
+    local itemNames = {}
+    for _, item in pairs(ITEMS) do
+        table.insert(itemNames, item.name)
+    end
+    
+    FarmTab:CreateDropdown({
+        Name = "Select Item to Farm",
+        Options = itemNames,
+        CurrentOption = selectedItem,
+        Flag = "ItemDropdown",
+        Callback = function(option)
+            selectedItem = option
+            Notify("Farm", "Selected: " .. option, 2)
+        end
+    })
+
+    -- Тоггл автофарма
+    FarmTab:CreateToggle({
+        Name = "Auto Farm (Full Cycle)",
+        CurrentValue = false,
+        Flag = "AutoFarmToggle",
+        Callback = function(Value)
+            autoFarmEnabled = Value
+            if Value then
+                Notify("Farm", "Auto Farm started!", 2)
+                startAutoFarm()
+            else
+                Notify("Farm", "Auto Farm stopped!", 2)
+                stopAutoFarm()
+            end
+        end
+    })
+
+    -- Ручной запуск одного цикла
+    FarmTab:CreateButton({
+        Name = "Run Single Cycle",
+        Callback = function()
+            Notify("Farm", "Running single cycle...", 2)
+            farmCycle()
+        end
+    })
+
+    -- Телепорт к магазину
+    FarmTab:CreateButton({
+        Name = "Teleport to Shop",
+        Callback = function()
+            teleportTo(SHOP_COORDS)
+            Notify("Farm", "Teleported to shop", 2)
+        end
+    })
+
+    -- Телепорт к продавцу
+    FarmTab:CreateButton({
+        Name = "Teleport to Seller",
+        Callback = function()
+            teleportTo(SELLER_COORDS)
+            Notify("Farm", "Teleported to seller", 2)
+        end
+    })
+
+    -- Телепорт к отмыванию
+    FarmTab:CreateButton({
+        Name = "Teleport to Wash",
+        Callback = function()
+            teleportTo(WASH_NPC)
+            Notify("Farm", "Teleported to wash", 2)
+        end
+    })
+
+    -- Слайдер скорости
+    FarmTab:CreateSlider({
+        Name = "Teleport Speed",
+        Range = {0.1, 5},
+        Increment = 0.1,
+        Suffix = "sec",
+        CurrentValue = 1,
+        Flag = "SpeedSlider",
+        Callback = function(Value)
+            teleportSpeed = Value
+        end
+    })
+
+    -- ========== HOME TAB ==========
+    local HomeTab = Window:CreateTab("Home", 4384396147)
+    
+    HomeTab:CreateParagraph({
+        Title = "Playa San Diego Farm",
+        Content = "Select item in Farm tab and enable Auto Farm.\n\nCycle: Buy → Fly to Seller → Sell → Fly to Wash → Wash Money"
+    })
+    
+    HomeTab:CreateButton({
+        Name = "Destroy UI",
+        Callback = function()
+            Rayfield:Destroy()
+        end
+    })
+
+    getgenv().LuaHubWindow = Window
+end)
+
+if not hubSuccess then
+    Notify("Error", "Failed to create hub: " .. tostring(hubErr), 5)
+    warn("[Lua Hub] " .. tostring(hubErr))
+end
+
+вот код просканируй его
